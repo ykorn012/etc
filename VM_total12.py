@@ -66,8 +66,8 @@ y = Sampling_M[:,10:13]
 T = 7
 
 X_train, X_test, y_train, y_test = train_test_split(V, y, test_size=0)
-print(X_train.shape, y_train.shape)
-print(X_test.shape, y_test.shape)
+# print(X_train.shape, y_train.shape)
+# print(X_test.shape, y_test.shape)
 
 # temp = np.c_[X_train, y_train]
 #
@@ -107,6 +107,8 @@ y_sort = y_temp[y_temp[:,2].argsort()]
 y1_test = y_sort[:,:1].reshape(len(y_train)) + Mean_M[10:11]
 y1_pred = y_sort[:,3:4].reshape(len(y_pred)) + Mean_M[10:11]
 
+N_Queue = Sampling_M[:,10:12]
+
 # plt.plot(np.arange(N), y1_test, 'bx--', y1_pred,'rx--', linewidth=2)
 # plt.xlabel('Run No.')
 # plt.ylabel('Y_value')
@@ -140,14 +142,13 @@ def sampling_DOE(k):
     rows = np.r_[psi, y_p1]
     return rows
 
-def pls_Update(queue, ez):
+def pls_Update(queue, ez, mean_Z):
     np_queue = np.array(queue)
     np_queue[1:10, 0:10] = lamda_PLS * np_queue[1:10, 0:10]
-    np_queue[1:10, 10:12] = lamda_PLS * (np_queue[1:10, 10:12] + 0.5 * ez)
-    Mean_M = np.mean(np_queue, axis=0)
-    up_queue = np_queue - Mean_M
+    np_queue[1:10, 12:14] = lamda_PLS * (np_queue[1:10, 12:14] + 0.5 * ez)
+    up_queue = np_queue - mean_Z
     V = up_queue[:, 0:10]
-    y = up_queue[:, 10:12]
+    y = up_queue[:, 12:14]
     pls.fit(V, y)
 
 
@@ -166,50 +167,58 @@ ez = []
 ez.append([0,0])
 result_k = []
 
+ez_Queue = []
+y1_act1 = []
+y1_pred1 = []
+mean_Z = np.zeros((14,))
+
 N = 400
 
 #### 고려사항
-## 1. 각 예측 값에 0.5 * ez인데.. update 기준도 애매하고.. 10 단위로 넣어줘야 하는지.. n이 헥갈린다.
+## 1. Size N에 따라 update 해주자...  -m을 빼주고.. 거기에 추가하자..
 
 
 for z in np.arange(0, Z):
     if z > 0:
-        y_zm_hat = W_Queue[z * M - 1][12:14] + mean_Z[10:12]
+        mean_Z = np.mean(W_Queue, axis=0)  # new Vz, Yz
+        y_zm_hat = W_Queue[z * M - 1][12:14] + mean_Z[12:14]
 
-        #y_p1 = y_zm_hat_t + e_p1  #y_zm_hat에 하는게 이상하다.. 그냥 하는 걸로 고쳐야 한다. Sampling_M(400이랑 같아야 하지 않을까?) 참조
-
-        y_zm = W_Queue[z * M - 1][0:2].dot(A_p1) + W_Queue[9][2:8].dot(C_p1) + np.sum(W_Queue[9][8:10] * d_p1, axis=0) + e_p1
+        y_zm = W_Queue[z * M - 1][10:12]
         ez_v = y_zm - y_zm_hat
 
         ez.append(ez_v)
 
-        pls_Update(W_Queue, ez_v)
+        pls_Update(W_Queue, ez_v, mean_Z)
 
-        mean_Z = np.mean(W_Queue, axis=0)  # new Vz, Yz
-#        del W_Queue[1:M + 1]
+#       del W_Queue[1:M + 1]
 
     for k in np.arange(z * M + 1, ((z + 1) * M) + 1):
-        result_k = sampling_DOE(k - 1)
+        result_k = sampling_DOE(k)
         Vz = result_k[0:10] - mean_Z.ravel()[0:10]
 
-        y_pred = pls.predict(Vz.reshape(1, 10))
+        y_pred = pls.predict(Vz.reshape(1, 10)) + mean_Z[12:14]
+
         rows = np.r_[result_k, y_pred.reshape(2,)]
         #print(rows)
+        y1_pred1.append(rows[12:14])
+        y1_act1.append(rows[10:12])
         W_Queue.append(rows)
+
         #print(len(W_Queue))
 
 #y_value = np.array(ez[0])
 
-y1_act = np.array(W_Queue[10:12])
-y1_pred = np.array(y1_pred)
+y1_act = np.array(y1_act1)
+y1_pred = np.array(y1_pred1)
+
+print("Mean squared error: %.3f" % mean_squared_error(y1_act[:,0:1], y1_pred[:,0:1]))
+
+plt.plot(np.arange(N), y1_act[:,0:1], 'bx--', y1_pred[:,0:1],'rx--', linewidth=2)
+plt.xlabel('Run No.')
+plt.ylabel('Y_value')
 #
-# plt.plot(np.arange(N), y1_act[:,0:1], 'bx--', y1_pred[:,1:2],'rx--', linewidth=2)
-# plt.xlabel('Run No.')
-# plt.ylabel('Y_value')
-
-ot = np.array(ez)
-
-plt.plot(np.arange(Z), ot[:,0:1], 'bs-', ot[:,1:2], 'rs--', linewidth=2)
-plt.xlabel('Metrology Run No.(z)')
-plt.ylabel('Ez')
-
+# ot = np.array(ez)
+#
+# plt.plot(np.arange(Z), ot[:,0:1], 'bs-', ot[:,1:2], 'rs--', linewidth=2)
+# plt.xlabel('Metrology Run No.(z)')
+# plt.ylabel('Ez')
