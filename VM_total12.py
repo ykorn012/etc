@@ -80,38 +80,36 @@ y1_pred = Y_sort[:,3:4].reshape(len(Y_pred)) + DoE_Mean[10:11]
 print("Mean squared error: %.3f" % mean_squared_error(y1_act, y1_pred))
 # plt_show(y1_act, y1_pred)
 
-actV0 = npDoE_Queue[:,0:10]
-actY0 = npDoE_Queue[:,10:12]
 predY0 = np.array(Y_sort[:,3:5] + DoE_Mean[10:12])
 meanV0 = DoE_Mean[0:10]
 meanY0 = DoE_Mean[10:12]
 
 
-def pls_Update(queue, ez, mean_Z):
-    np_queue = np.array(queue)
-    np_queue[1:10, 0:10] = lamda_PLS * np_queue[1:10, 0:10]
-    np_queue[1:10, 12:14] = lamda_PLS * (np_queue[1:10, 12:14] + 0.5 * ez)
-    up_queue = np_queue - mean_Z
-    V = up_queue[:, 0:10]
-    y = up_queue[:, 12:14]
-    pls.fit(V, y)
+# def pls_Update(m_queue, M):
+#
+#
+#
+#
+#     np_queue = np.array(queue)
+#     np_queue[1:10, 0:10] = lamda_PLS * np_queue[1:10, 0:10]
+#     np_queue[1:10, 12:14] = lamda_PLS * (np_queue[1:10, 12:14] + 0.5 * ez)
+#     up_queue = np_queue - mean_Z
+#     V = up_queue[:, 0:10]
+#     y = up_queue[:, 12:14]
+#     pls.fit(V, y)
 
+plsWindow = DoE_Queue.copy()
 
-W_Queue = []
-meanV = meanV0
-meanY = meanY0  ## V0, Y0 Mean Center
-Z = 1
+meanVz = meanV0
+meanYz = meanY0  ## V0, Y0 Mean Center
+Z = 40
 M = 10
-ez = []
-ez.append([0,0])
-result_k = []
-
+M_Queue = []
 ez_Queue = []
+ez_Queue.append([0,0])  #e0 = (0,0)
 y1_act1 = []
 y1_pred1 = []
-mean_Z = np.zeros((14,))
 
-N = 400
 
 #### 고려사항
 ## 1. Size N에 따라 update 해주자...  -m을 빼주고.. 거기에 추가하자..
@@ -119,42 +117,56 @@ N = 400
 
 for z in np.arange(0, Z):
     if z > 0:
-        mean_Z = np.mean(W_Queue, axis=0)  # new Vz, Yz
-        y_zm_hat = W_Queue[z * M - 1][12:14] + mean_Z[12:14]
+        del plsWindow[0:M]
 
-        y_zm = W_Queue[z * M - 1][10:12]
-        ez_v = y_zm - y_zm_hat
+        ez = M_Queue[M - 1][10:12] - M_Queue[M - 1][12:14]
+        ez_Queue.append(ez)
 
-        ez.append(ez_v)
+        npM_Queue = np.array(M_Queue)
+        npM_Queue[0:M-1, 0:10] = lamda_PLS * npM_Queue[0:M-1, 0:10]
+        npM_Queue[0:M-1, 10:12] = lamda_PLS * (npM_Queue[0:M-1, 12:14] + 0.5 * ez)
+        npM_Queue.resize(M, 12)
 
-        pls_Update(W_Queue, ez_v, mean_Z)
+        for i in range(M):
+            plsWindow.append(npM_Queue[i])
 
-#       del W_Queue[1:M + 1]
+        M_Mean = np.mean(np.array(plsWindow), axis=0)
+        meanVz = M_Mean[0:10]
+        meanYz = M_Mean[10:12]
+
+        plsModelData = plsWindow - M_Mean
+        V = plsModelData[:, 0:10]
+        Y = plsModelData[:, 10:12]
+        pls.fit(V, Y)
+
+        # pls_Update(M_Queue, M)
+
+        del M_Queue[0:M]
 
     for k in np.arange(z * M + 1, ((z + 1) * M) + 1):
-        resultV = sampling(k)
-        Vz = resultV[0:10] - meanV
+        result = sampling(k)
+        psiK = result[0:10]
+        psiKStar = psiK - meanVz
+        y_predK = pls.predict(psiKStar.reshape(1, 10)) + meanYz
 
-        y_pred = pls.predict(Vz.reshape(1, 10)) + meanY
+        rows = np.r_[result, y_predK.reshape(2,)]
+        M_Queue.append(rows)
 
-        # rows = np.r_[result_k, y_pred.reshape(2,)]
-        # #print(rows)
-        # y1_pred1.append(rows[12:14])
-        # y1_act1.append(rows[10:12])
-        # W_Queue.append(rows)
+        y1_pred1.append(rows[12:14])
+        y1_act1.append(rows[10:12])
 
-        print(y_pred)
+
 
 #y_value = np.array(ez[0])
 
-# y1_act = np.array(y1_act1)
-# y1_pred = np.array(y1_pred1)
-#
-# #print("Mean squared error: %.3f" % mean_squared_error(y1_act[:,0:1], y1_pred[:,0:1]))
-#
-# plt.plot(np.arange(N), y1_act[:,0:1], 'bx--', y1_pred[:,0:1],'rx--', linewidth=2)
-# plt.xlabel('Run No.')
-# plt.ylabel('Y_value')
+y1_act = np.array(y1_act1)
+y1_pred = np.array(y1_pred1)
+
+print("Mean squared error: %.3f" % mean_squared_error(y1_act[:,0:1], y1_pred[:,0:1]))
+
+plt.plot(np.arange(Z * M), y1_act[:,0:1], 'bx--', y1_pred[:,0:1],'rx--', linewidth=2)
+plt.xlabel('Run No.')
+plt.ylabel('Y_value')
 #
 # ot = np.array(ez)
 #
