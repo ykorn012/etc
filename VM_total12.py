@@ -11,15 +11,17 @@ from sklearn.model_selection import KFold
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.preprocessing import scale
 
+os.chdir("D:/01. CLASS/Machine Learning/01. FabWideSimulation3/")
+
 lamda_PLS = 0.1
+A_p1 = np.array([[0.5, -0.2], [0.25, 0.15]])
+d_p1 = np.array([[0.1, 0], [0.05, 0]])
+C_p1 = np.transpose(np.array([[0, 0.5, 0.05, 0, 0.15, 0], [0.085, 0, 0.025, 0.2, 0, 0]]))
+
 N = 120
 DoE_Queue = []
 
 def sampling(k):
-    A_p1 = np.array([[0.5, -0.2], [0.25, 0.15]])
-    d_p1 = np.array([[0.1, 0], [0.05, 0]])
-    C_p1 = np.transpose(np.array([[0, 0.5, 0.05, 0, 0.15, 0], [0.085, 0, 0.025, 0.2, 0, 0]]))
-
     u1_p1 = np.random.normal(0.4, np.sqrt(0.2))
     u2_p1 = np.random.normal(0.6, np.sqrt(0.2))
     u_p1 = np.array([u1_p1, u2_p1])
@@ -32,24 +34,22 @@ def sampling(k):
     v6_p1 = np.random.normal(-0.6, np.sqrt(0.2))
 
     v_p1 = np.array([v1_p1, v2_p1, v3_p1, v4_p1, v5_p1, v6_p1])
+    k1_p1 = (k % 100) * d_p1[0] # n = 100 일 때 #1 entity maintenance event
+    k2_p1 = (k % 200) * d_p1[1] # n = 200 일 때 #1 entity maintenance event
 
-    k1_p1 = k % 100  # n = 100 일 때 #1 entity maintenance event
-    k2_p1 = k % 200  # n = 200 일 때 #1 entity maintenance event
-
-    k_p1 = np.array([[k1_p1], [k2_p1]])
-
-    psi = np.array([u1_p1, u2_p1, v1_p1, v2_p1, v3_p1, v4_p1, v5_p1, v6_p1, k1_p1, k2_p1])
+    k_p1 = k1_p1 + k2_p1
+    psi = np.array([u1_p1, u2_p1, v1_p1, v2_p1, v3_p1, v4_p1, v5_p1, v6_p1, k_p1[0], k_p1[1]])
 
     e1_p1 = np.random.normal(0, np.sqrt(0.1))
     e2_p1 = np.random.normal(0, np.sqrt(0.2))
     e_p1 = np.array([e1_p1, e2_p1])
 
-    y_p1 = u_p1.dot(A_p1) + v_p1.dot(C_p1) + np.sum(k_p1 * d_p1, axis=0) + e_p1
+    y_p1 = u_p1.dot(A_p1) + v_p1.dot(C_p1) + k_p1 + e_p1
     rows = np.r_[psi, y_p1]
     return rows
 
-def plt_show(y1_act, y1_pred):
-    plt.plot(np.arange(N), y1_act, 'bx--', y1_pred,'rx--', linewidth=2)
+def plt_show(n, y1_act, y1_pred):
+    plt.plot(np.arange(n), y1_act, 'bx--', y1_pred,'rx--', linewidth=2)
     plt.xlabel('Run No.')
     plt.ylabel('y_value')
 
@@ -78,7 +78,7 @@ y1_act = Y_sort[:,:1].reshape(len(Y_train)) + DoE_Mean[10:11]
 y1_pred = Y_sort[:,3:4].reshape(len(Y_pred)) + DoE_Mean[10:11]
 
 print("Mean squared error: %.3f" % mean_squared_error(y1_act, y1_pred))
-# plt_show(y1_act, y1_pred)
+#plt_show(N, y1_act, y1_pred)
 
 predY0 = np.array(Y_sort[:,3:5] + DoE_Mean[10:12])
 meanV0 = DoE_Mean[0:10]
@@ -123,28 +123,33 @@ for z in np.arange(0, Z):
         ez_Queue.append(ez)
 
         npM_Queue = np.array(M_Queue)
-        npM_Queue[0:M-1, 0:10] = lamda_PLS * npM_Queue[0:M-1, 0:10]
-        npM_Queue[0:M-1, 10:12] = lamda_PLS * (npM_Queue[0:M-1, 12:14] + 0.5 * ez)
+        npM_Queue[0:M - 1, 0:10] = lamda_PLS * npM_Queue[0:M - 1, 0:10]
+        npM_Queue[0:M - 1, 10:12] = lamda_PLS * (npM_Queue[0:M - 1, 12:14] + 0.5 * ez)
+
         npM_Queue.resize(M, 12)
 
         for i in range(M):
             plsWindow.append(npM_Queue[i])
 
         M_Mean = np.mean(np.array(plsWindow), axis=0)
+        #M_Mean[8:10] = [0, 0]
         meanVz = M_Mean[0:10]
         meanYz = M_Mean[10:12]
+        print("k : ", k, ", z : ", z, ", meanVz : ", meanVz[8:10], ", meanYz : ", meanYz)
 
         plsModelData = plsWindow - M_Mean
         V = plsModelData[:, 0:10]
         Y = plsModelData[:, 10:12]
+
         pls.fit(V, Y)
 
         # pls_Update(M_Queue, M)
-
         del M_Queue[0:M]
+
 
     for k in np.arange(z * M + 1, ((z + 1) * M) + 1):
         result = sampling(k)
+        #print("result : ", result)
         psiK = result[0:10]
         psiKStar = psiK - meanVz
         y_predK = pls.predict(psiKStar.reshape(1, 10)) + meanYz
@@ -152,21 +157,22 @@ for z in np.arange(0, Z):
         rows = np.r_[result, y_predK.reshape(2,)]
         M_Queue.append(rows)
 
+        sample = np.array(M_Queue)
+
         y1_pred1.append(rows[12:14])
         y1_act1.append(rows[10:12])
-
-
 
 #y_value = np.array(ez[0])
 
 y1_act = np.array(y1_act1)
 y1_pred = np.array(y1_pred1)
+# sample = np.c_[y1_act, y1_pred]
+np.savetxt("output/vm_total.csv", plsWindow, delimiter=",", fmt="%s")
 
 print("Mean squared error: %.3f" % mean_squared_error(y1_act[:,0:1], y1_pred[:,0:1]))
 
-plt.plot(np.arange(Z * M), y1_act[:,0:1], 'bx--', y1_pred[:,0:1],'rx--', linewidth=2)
-plt.xlabel('Run No.')
-plt.ylabel('Y_value')
+plt_show(Z * M, y1_act[:,0:1], y1_pred[:,0:1])
+
 #
 # ot = np.array(ez)
 #
