@@ -172,7 +172,3 @@ y1_pred = np.array(y1_pred1)
 print("Mean squared error: %.3f" % mean_squared_error(y1_act[:, 0:1], y1_pred[:, 0:1]))
 
 plt_show(Z * M, y1_act[:, 0:1], y1_pred[:, 0:1])
-
-
-
-
