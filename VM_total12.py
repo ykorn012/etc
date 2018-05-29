@@ -45,8 +45,8 @@ def sampling(k, isR2R, uk = np.array([0, 0])):
 
     v_p1 = np.array([v1_p1, v2_p1, v3_p1, v4_p1, v5_p1, v6_p1])
 
-    k1_p1 = 1
-    k2_p1 = 1
+    k1_p1 = k
+    k2_p1 = k
 
     k_p1 = np.array([[k1_p1], [k2_p1]])
 
@@ -62,7 +62,7 @@ def sampling(k, isR2R, uk = np.array([0, 0])):
     return rows
 
 def pls_update(V, Y):
-    cv = KFold(n_splits=50, shuffle=True, random_state=42)
+    cv = KFold(n_splits=10, shuffle=True, random_state=42)
 
     for train_index, test_index in cv.split(V):
         V_train = V[train_index]
@@ -96,7 +96,7 @@ y_pred = pls.predict(V0) + DoE_Mean[10:12]
 y_act = npDoE_Queue[:,10:12]
 
 print("Mean squared error: %.3f" % mean_squared_error(y_act, y_pred))
-#plt_show(N, y_pred[:,0:1], y_pred[:,0:1])
+#plt_show(N, y_act[:,0:1], y_act[:,0:1])
 
 meanV0 = DoE_Mean[0:10]
 meanY0 = DoE_Mean[10:12]
@@ -113,6 +113,7 @@ Dk_prev = np.array([0, 0])
 Kd_prev = np.array([0, 0])
 uk_next = meanV0[0:2].dot(A_p1)
 uk_next = (Tgt - yk - uk.dot(A_p1)).dot(np.linalg.inv(A_p1))
+uk_next = meanV0[0:2]
 
 Z = 20
 M = 10
@@ -180,4 +181,3 @@ y1_pred = np.array(y1_pred1)
 print("Mean squared error: %.3f" % mean_squared_error(y1_act[:,0:1], y1_pred[:,0:1]))
 
 plt_show(Z * M, y1_act[:,0:1], y1_act[:,0:1])
-
