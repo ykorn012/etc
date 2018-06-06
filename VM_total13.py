@@ -3,9 +3,10 @@ import copy
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.metrics import mean_squared_error
+from sklearn import metrics
+import pickle
 
-os.chdir("D:/11. Programming/ML/01. FabWideSimulation5")
+os.chdir("D:/01. CLASS/Machine Learning/01. FabWideSimulation4/")
 pls = PLSRegression(n_components=6, scale=True, max_iter=500)
 lamda_PLS = 0.1
 Tgt = np.array([0, 50])
@@ -65,7 +66,7 @@ def sampling(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0, 0]), initia
     e1_p1 = np.random.normal(0, np.sqrt(0.1))
     e2_p1 = np.random.normal(0, np.sqrt(0.2))
     if initialVM:
-        e_p1 = [0,0]
+        e_p1 = np.array([e1_p1, e2_p1])
     else:
         e_p1 = np.array([e1_p1, e2_p1])
 
@@ -88,9 +89,22 @@ for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
     result = sampling(k, sampling_up(), sampling_vp(), True)
     DoE_Queue.append(result)
 
-npDoE_Queue = np.array(DoE_Queue)
+initplsWindow = DoE_Queue.copy()
+npPlsWindow= np.array(initplsWindow)
+
+plsWindow = []
+Z = 12
+M = 10
+
+for z in np.arange(0, Z):
+    npPlsWindow[z * M:(z + 1) * M - 1, 0:10] = lamda_PLS * npPlsWindow[z * M:(z + 1) * M - 1, 0:10]
+    npPlsWindow[z * M:(z + 1) * M - 1,10:12] = lamda_PLS * (npPlsWindow[z * M:(z + 1) * M - 1, 10:12])
+
+for i in range(len(npPlsWindow)):
+    plsWindow.append(npPlsWindow[i])
+
+npDoE_Queue = np.array(plsWindow)
 DoE_Mean = np.mean(npDoE_Queue, axis = 0)
-#np.savetxt("output/R2R_Simulation01.csv", npDoE_Queue, delimiter=",", fmt="%s")
 
 plsModelData = npDoE_Queue - DoE_Mean
 V0 = plsModelData[:,0:10]
@@ -103,13 +117,13 @@ print('Coefficients: \n', pls.coef_)
 y_pred = pls.predict(V0) + DoE_Mean[10:12]
 y_act = npDoE_Queue[:,10:12]
 
-print("Mean squared error: %.3f" % mean_squared_error(y_act, y_pred))
+print("Mean squared error: %.3f" % metrics.mean_squared_error(y_act, y_pred))
+print("Mean squared error: %.3f" % metrics.r2_score(y_act, y_pred))
 #plt_show(N, y_act[:,0:1], y_act[:,0:1])
 
 meanVz = DoE_Mean[0:10]
 meanYz = DoE_Mean[10:12]  ## V0, Y0 Mean Center
 
-plsWindow = DoE_Queue.copy()
 Z = 40
 M = 10
 M_Queue = []
@@ -124,6 +138,7 @@ for z in np.arange(0, Z):
         psiK = result[0:10]
         psiKStar = psiK - meanVz
         y_predK = pls.predict(psiKStar.reshape(1, 10)) + meanYz
+#        print("k : ", k, ", z : ", z, ", psiKStar : ", psiKStar[8:10], ", y_predK : ", y_predK)
         rows = np.r_[result, y_predK.reshape(2,)]
         M_Queue.append(rows)
 
@@ -142,7 +157,7 @@ for z in np.arange(0, Z):
     npM_Queue = np.array(M_Queue)
     npM_Queue[0:M - 1, 0:10] = lamda_PLS * npM_Queue[0:M - 1, 0:10]
     npM_Queue[0:M - 1, 10:12] = lamda_PLS * (npM_Queue[0:M - 1, 12:14] + 0.5 * ez)
-    npM_Queue.resize(M, 12)
+    npM_Queue = npM_Queue[:, 0:12]
 
     for i in range(M):
        plsWindow.append(npM_Queue[i])
@@ -150,14 +165,14 @@ for z in np.arange(0, Z):
     M_Mean = np.mean(plsWindow, axis=0)
     meanVz = M_Mean[0:10]
     meanYz = M_Mean[10:12]
-    print("k : ", k, ", z : ", z, ", meanVz : ", meanVz[8:10], ", meanYz : ", meanYz)
+#    print("k : ", k, ", z : ", z, ", meanVz : ", meanVz[8:10], ", meanYz : ", meanYz)
 
     plsModelData = plsWindow - M_Mean
     V = plsModelData[:, 0:10]
     Y = plsModelData[:, 10:12]
 
 #    pls = copy.deepcopy(pls_udt)
-#    pls.fit(V, Y)
+    pls_update(V, Y)
 
     del M_Queue[0:M]
 
@@ -167,6 +182,7 @@ y1_pred = np.array(y1_pred1)
 # sample = np.c_[y1_act, y1_pred]
 #np.savetxt("output/vm_total.csv", plsWindow, delimiter=",", fmt="%s")
 
-print("Mean squared error: %.3f" % mean_squared_error(y1_act[:,0:1], y1_pred[:,0:1]))
+print("Mean squared error: %.3f" % metrics.mean_squared_error(y1_act[:,0:1], y1_pred[:,0:1]))
+print("Mean squared error: %.3f" % metrics.r2_score(y1_act[:,0:1], y1_pred[:,0:1]))
 
 plt_show(Z * M, y1_act[:,0:1], y1_pred[:,0:1])
