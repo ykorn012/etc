@@ -7,8 +7,8 @@ from sklearn import metrics
 
 
 os.chdir("D:/11. Programming/ML/01. FabWideSimulation7/")
-pls = PLSRegression(n_components=6, scale=False, max_iter=1500, copy=True, tol=0.1)
-lamda_PLS = 1
+pls = PLSRegression(n_components=6, scale=False, max_iter=1500, copy=True)
+lamda_PLS = 0.1
 Tgt = np.array([0, 50])
 A_p1 = np.array([[0.5, -0.2], [0.25, 0.15]])
 d_p1 = np.array([[0.1, 0], [0.05, 0]])
@@ -107,7 +107,7 @@ Kd_prev = np.array([0, 0])
 
 for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
     result = sampling(k, uk_next, sampling_vp(), True)
-    print('yk : %.5f' % result[10:11])
+#    print('yk : %.5f' % result[10:11])
     while (result[10:11] > 1) or (result[10:11] < -1):
         result = sampling(k, uk_next, sampling_vp(), True)
     DoE_Queue.append(result)
@@ -168,17 +168,14 @@ meanVz = DoE_Mean[0:10]
 meanYz = DoE_Mean[10:12]  ## V0, Y0 Mean Center
 
 yk = np.array([0, 0])
-uk = sampling_up()
 
 Dk_prev = np.array([0, 0])
 Kd_prev = np.array([0, 0])
 
 Dk = np.array([0, 0])
 Kd = np.array([0, 0])
-uk_next = sampling_up()
-vp_next = sampling_vp()
-
-Z = 20
+uk_next = np.array([0, 0])
+Z = 10
 M = 10
 M_Queue = []
 ez_Queue = []
@@ -189,8 +186,8 @@ y1_pred1 = []
 for z in np.arange(0, Z):
     for k in np.arange(z * M + 1, ((z + 1) * M) + 1):
         result = sampling(k, uk_next, sampling_vp(), False)
-        while (result[10:11] > 1) or (result[10:11] < -1):
-            result = sampling(k, uk_next, sampling_vp(), False)
+        # while (result[10:11] > 1) or (result[10:11] < -1):
+        #     result = sampling(k, uk_next, sampling_vp(), False)
         psiK = result[0:10]
         psiKStar = psiK - meanVz
         y_predK = pls.predict(psiKStar.reshape(1, 10)) + meanYz
@@ -214,13 +211,11 @@ for z in np.arange(0, Z):
 
         uk_next = (Tgt - Dk - Kd).dot(np.linalg.inv(A_p1))
         uk_next = uk_next.reshape(2,)
-        # print("uk_next : ", uk_next)
-        # print("uk_A_p1 : ", uk_next.dot(A_p1))
+        print("uk_next : ", uk_next)
+        print("uk_A_p1 : ", uk_next.dot(A_p1))
 
         Kd_prev = Kd
         Dk_prev = Dk
-
-        vp_next = sampling_vp()
 
     del plsWindow[0:M]
 
@@ -245,7 +240,7 @@ for z in np.arange(0, Z):
 
 #    pls = copy.deepcopy(pls_udt)
     pls_update(V, Y)
-    print(pls.coef_)
+#    print(pls.coef_)
 
     del M_Queue[0:M]
 
@@ -266,4 +261,3 @@ met_run = np.array(ez_Queue)
 # #plt.plot(np.arange(Z + 1), met_run[:,0:1], 'bs-', linewidth=2)
 # plt.xlabel('Metrology Run No.(z)')
 # plt.ylabel('Ez')
-
