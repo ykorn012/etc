@@ -6,9 +6,9 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn import metrics
 
 
-os.chdir("D:/01. CLASS/Machine Learning/01. FabWideSimulation5/")
-pls = PLSRegression(n_components=6, scale=False, max_iter=500, copy=True)
-lamda_PLS = 1
+os.chdir("D:/11. Programming/ML/01. FabWideSimulation7/")
+pls = PLSRegression(n_components=6, scale=False, max_iter=1500, copy=True, tol=0.1)
+lamda_PLS = 0.5
 Tgt = np.array([0, 50])
 A_p1 = np.array([[0.5, -0.2], [0.25, 0.15]])
 d_p1 = np.array([[0.1, 0], [0.05, 0]])
@@ -64,6 +64,7 @@ def sampling(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0, 0]), initia
 
     e1_p1 = np.random.normal(0, np.sqrt(0.2))
     e2_p1 = np.random.normal(0, np.sqrt(0.4))
+
     if initialVM:
         e_p1 = np.array([0, 0])
 #        e_p1 = np.array([e1_p1, e2_p1])
@@ -72,6 +73,17 @@ def sampling(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0, 0]), initia
 #        e_p1 = np.array([0, 0])
 
     y_p1 = u_p1.dot(A_p1) + v_p1.dot(C_p1) + np.sum(k_p1 * d_p1, axis=0) + e_p1
+#    print('v_p1 : ', v_p1)
+    print('v_p1.dot(C_p1) : %.5f' % v_p1.dot(C_p1)[0])
+#    if y_p1[0] > 1 or y_p1[0] < -1:
+    if y_p1[0] > -10:
+        print('k : ', k)
+        print('yk : %.5f' % y_p1[0])
+        print('u_p1 : ', u_p1)
+        print('u_p1.dot(A_p1) : %.5f' % u_p1.dot(A_p1)[0])
+        print('v_p1 : ', v_p1)
+        print('v_p1.dot(C_p1) : %.5f' % v_p1.dot(C_p1)[0])
+        print('np.sum(k_p1 * d_p1, axis=0) : %.5f' % np.sum(k_p1 * d_p1, axis=0)[0])
     rows = np.r_[psi, y_p1]
 
     return rows
@@ -94,17 +106,19 @@ def plt_show1(n, y1_act):
 
 N = 100
 DoE_Queue = []
-#uk_next = np.array([-119.34010826, 169.86355396])
 uk_next = np.array([0, 0])
 Dk_prev = np.array([0, 0])
 Kd_prev = np.array([0, 0])
 vk_next = sampling_vp()
 
-
 for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
     result = sampling(k, uk_next, vk_next, True)
+#    print('yk : %.5f' % result[10:11])
+
+    while (result[10:11] > 1) or (result[10:11] < -1):
+        result = sampling(k, uk_next, sampling_vp(), True)
     DoE_Queue.append(result)
-    print('yk : %.5f' % result[10:11])
+
 
     # ================================== R2R Control =====================================
     npResult = np.array(result)
@@ -116,11 +130,12 @@ for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
     Kd = (yk - uk.dot(A_p1) - Dk_prev).dot(L2) + Kd_prev.dot(I - L2)
 
     uk_next = (Tgt - Dk - Kd).dot(np.linalg.inv(A_p1))
-    temp = sampling(k, uk_next, npResult[2:8], True)
-    print('yhatk : %.5f' % temp[10:11])
+#    temp = sampling(k, uk_next, npResult[2:8], True)
+#    print('yhatk : %.5f' % temp[10:11])
 
     Kd_prev = Kd
     Dk_prev = Dk
+    vk_next = sampling_vp()
 
 initplsWindow = DoE_Queue.copy()
 npPlsWindow= np.array(initplsWindow)
@@ -129,7 +144,7 @@ plsWindow = []
 Z = 10
 M = 10
 
-np.savetxt("output/vm_sample1.csv", DoE_Queue, delimiter=",", fmt="%s")
+#np.savetxt("output/vm_sample1.csv", DoE_Queue, delimiter=",", fmt="%s")
 
 for z in np.arange(0, Z):
     npPlsWindow[z * M:(z + 1) * M - 1, 0:10] = lamda_PLS * npPlsWindow[z * M:(z + 1) * M - 1, 0:10]
@@ -140,14 +155,14 @@ for i in range(len(npPlsWindow)):
 
 npDoE_Queue = np.array(plsWindow)
 DoE_Mean = np.mean(npDoE_Queue, axis = 0)
-np.savetxt("output/vm_sample2.csv", plsWindow, delimiter=",", fmt="%s")
+#np.savetxt("output/vm_sample2.csv", plsWindow, delimiter=",", fmt="%s")
 plsModelData = npDoE_Queue - DoE_Mean
 V0 = plsModelData[:,0:10]
 Y0 = plsModelData[:,10:12]
 
 pls = pls_update(V0, Y0)
 
-print('Coefficients: \n', pls.coef_)
+#print('Coefficients: \n', pls.coef_)
 
 y_pred = pls.predict(V0) + DoE_Mean[10:12]
 y_act = npDoE_Queue[:,10:12]
@@ -156,3 +171,5 @@ print("Mean squared error: %.3f" % metrics.mean_squared_error(y_act, y_pred))
 print("r2 score: %.3f" % metrics.r2_score(y_act, y_pred))
 #plt_show(N, y_act[:,0:1], y_pred[:,0:1])
 plt_show1(N, y_act[:,0:1])
+
+
