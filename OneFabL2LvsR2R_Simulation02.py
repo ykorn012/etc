@@ -4,10 +4,10 @@ from matplotlib import pyplot as plt
 from sklearn.cross_decomposition import PLSRegression
 from sklearn import metrics
 
-os.chdir("D:/11. Programming/ML/")
+os.chdir("D:/01. CLASS/Machine Learning/")
 pls = PLSRegression(n_components=6, scale=False, max_iter=50000, copy=True)
 init_lamda_PLS = 1
-lamda_PLS = 0.1
+lamda_PLS = 1
 
 Tgt = np.array([0, 50])
 A_p1 = np.array([[0.5, -0.2], [0.25, 0.15]])
@@ -19,7 +19,7 @@ sample_vm_EP = []
 sample_init_VP = []
 sample_vm_VP = []
 
-np.random.seed(4) # 4
+np.random.seed(1000000) # 4
 
 I = np.identity(2)
 
@@ -102,12 +102,18 @@ def plt_show2(n, y1_act):
     plt.xlabel('Run No.')
     plt.ylabel('y_value')
 
+def plt_show3(n, y1_act, y1_pred):
+    plt.plot(np.arange(1, n + 1), y1_act, 'rx--', y1_pred,'bx--', linewidth=2)
+    plt.xticks(np.arange(0, n, 10))
+    plt.xlabel('Run No.')
+    plt.ylabel('y_value')
+
 for k in range(0, N + 1):
     sample_init_VP.append(sampling_vp())
     sample_init_EP.append(sampling_ep())
 
 DoE_Queue = []
-uk_next = np.array([-100, 195])
+uk_next = np.array([0, 0])
 Dk_prev = np.array([0, 0])
 Kd_prev = np.array([0, 0])
 
@@ -167,6 +173,7 @@ print("Init R2R-VM Mean squared error: %.3f" % metrics.mean_squared_error(y_act,
 print("Init R2R-VM r2 score: %.3f" % metrics.r2_score(y_act, y_pred))
 
 #plt_show2(Z * M, y_act[:,0:1])
+#plt_show3(Z * M, y_act[:,0:1], y_act[:,1:2])
 
 #==================================== VM + R2R =======================================
 
@@ -209,7 +216,7 @@ for z in np.arange(0, Z):
         rows = np.r_[result, y_predK.reshape(2,)]
 
         y1_pred1.append(rows[12:14])
-#        y1_act1.append(rows[10:12])
+        y1_act1.append(rows[10:12])
 
         # ================================== VM + R2R Control =====================================
         L1 = AL1
@@ -229,7 +236,7 @@ for z in np.arange(0, Z):
 
         # if k % M != 0:
         #     rows[12:14] = uk.dot(A_p1) + Dk + Kd
-        y1_act1.append(yk)
+#        y1_act1.append(yk)
 
         uk_next = (Tgt - Dk - Kd).dot(np.linalg.inv(A_p1))
         uk_next = uk_next.reshape(2, )
@@ -248,6 +255,13 @@ for z in np.arange(0, Z):
     npM_Queue[0:M - 1, 10:12] = lamda_PLS * (npM_Queue[0:M - 1, 12:14] + 0.5 * ez)
     npM_Queue = npM_Queue[:, 0:12]
 
+
+    T_Mean = np.mean(npM_Queue[:,10:12], axis=0)
+    temp = npM_Queue[:, 10:12] - T_Mean
+
+    for i in range(M):
+        y1_act2.append(temp[i])
+
     for i in range(M):
         plsWindow.append(npM_Queue[i])
 
@@ -258,11 +272,6 @@ for z in np.arange(0, Z):
     plsModelData = plsWindow - M_Mean
     V = plsModelData[:, 0:10]
     Y = plsModelData[:, 10:12]
-
-    print(len(plsModelData))
-    for i in range(90, 100):
-        temp = plsModelData[i:i + 1, 10:12].flatten()
-        y1_act2.append(temp)
 
     pls_update(V, Y)
 
@@ -406,7 +415,7 @@ for z in np.arange(0, Z):
         rows = np.r_[result, y_predK.reshape(2,)]
 
         y1_pred1.append(rows[12:14])
-#        y1_act1.append(rows[10:12])
+        y1_act1.append(rows[10:12])
 
         # ================================== VM + L2L Control =====================================
         L1 = AL1
@@ -427,7 +436,8 @@ for z in np.arange(0, Z):
         # if k % M != 0:
         #     yk = uk.dot(A_p1) + Dk + Kd
         #     rows[12:14] = yk
-        y1_act1.append(yk)
+#        y1_act1.append(yk)
+
         ep_next = sample_vm_EP[k]
         M_Queue.append(rows)
 
