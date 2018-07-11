@@ -5,23 +5,27 @@ from sklearn import metrics
 
 pls = PLSRegression(n_components=6, scale=False, max_iter=50000, copy=True)
 init_lamda_PLS = 1
-lamda_PLS = 1
-f_lamda_hat = 1
+lamda_PLS = 0.1
 
 Tgt = np.array([0, 0])
 A_p1 = np.array([[1, 0.1], [-0.5, 0.2]])
 d_p1 = np.array([[0, 0.05], [0, 0.05]])
 C_p1 = np.transpose(np.array([[0.1, 0, 0, -0.2, 0.1], [0, -0.2, 0, 0.3, 0]]))
-F_p1 = np.array([[0.5, 0], [0, 0.5]])
+F_p1 = np.array([[0.05, 0], [0, 0.05]])
+
+sample_init_EP = []
+sample_vm_EP = []
+sample_init_VP = []
+sample_vm_VP = []
 
 preProcessMet = np.genfromtxt('D:/11. Programming/ML/process1-metrology.csv', delimiter=',')
 
-np.random.seed(20)
+np.random.seed(4)
 
 I = np.identity(2)
 
-L1_SC = 0.55
-L2_SC = 0.75
+L1_SC = 0.45
+L2_SC = 0.35
 
 IL1 = L1_SC * I
 IL2 = L2_SC * I
@@ -43,7 +47,13 @@ def sampling_vp():
     v_p1 = np.array([v1_p1, v2_p1, v3_p1, v4_p1, v5_p1])
     return v_p1
 
-def sampling(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), initialVM = True, isfvalue = False):
+def sampling_ep():
+    e1_p1 = np.random.normal(0, np.sqrt(0.05))
+    e2_p1 = np.random.normal(0, np.sqrt(0.1))
+    e_p1 = np.array([e1_p1, e2_p1])
+    return e_p1
+
+def sampling(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), ep = np.array([0, 0]), initialVM = True):
     u1_p1 = uk[0]
     u2_p1 = uk[1]
     u_p1 = uk
@@ -55,6 +65,7 @@ def sampling(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), initialVM
     v5_p1 = vp[4]
 
     v_p1 = vp
+    e_p1 = ep
 
     if initialVM == True:
         k1_p1 = k
@@ -67,19 +78,12 @@ def sampling(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), initialVM
 
     psi = np.array([u1_p1, u2_p1, v1_p1, v2_p1, v3_p1, v4_p1, v5_p1, k1_p1, k2_p1])
 
-    e1_p1 = np.random.normal(0, np.sqrt(0.05))
-    e2_p1 = np.random.normal(0, np.sqrt(0.1))
-    if initialVM:
-        e_p1 = np.array([e1_p1, e2_p1])
-    else:
-        e_p1 = np.array([e1_p1, e2_p1])
-
     y_p1 = u_p1.dot(A_p1) + v_p1.dot(C_p1) + np.sum(k_p1 * d_p1, axis=0) + e_p1
     rows = np.r_[psi, y_p1]
 
     return rows
 
-def sampling2(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), initialVM = True):
+def sampling2(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), ep = np.array([0, 0]), initialVM = True):
     u1_p1 = uk[0]
     u2_p1 = uk[1]
     u_p1 = uk
@@ -91,6 +95,7 @@ def sampling2(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), initialV
     v5_p1 = vp[4]
 
     v_p1 = vp
+    e_p1 = ep
 
     if initialVM == True:
         k1_p1 = k
@@ -104,28 +109,19 @@ def sampling2(k, uk = np.array([0, 0]), vp = np.array([0, 0, 0, 0, 0]), initialV
     f1_p1 = preProcessMet[k - 1][0]
     f2_p1 = preProcessMet[k - 1][1]
 
-    # f1_p1 = 0
-    # f2_p1 = 0
-
-    if k % M != 0 and initialVM == False:
-        f1_p1 = f_lamda_hat * f1_p1
-        f2_p1 = f_lamda_hat * f2_p1
+    # f1_p1 = 200
+    # f2_p1 = 100
 
     f_p1 = np.array([f1_p1, f2_p1])
 
     psi = np.array([u1_p1, u2_p1, v1_p1, v2_p1, v3_p1, v4_p1, v5_p1, k1_p1, k2_p1, f1_p1, f2_p1])
 
-    e1_p1 = np.random.normal(0, 0.05)
-    e2_p1 = np.random.normal(0, 0.1)
-    if initialVM:
-        e_p1 = np.array([e1_p1, e2_p1])
-    else:
-        e_p1 = np.array([e1_p1, e2_p1])
-
     y_p1 = u_p1.dot(A_p1) + v_p1.dot(C_p1) + np.sum(k_p1 * d_p1, axis=0) + e_p1 + f_p1.dot(F_p1)
 
+    # print("f_p1 : ", f_p1)
+    # print("f_p1.dot(F_p1) : ", f_p1.dot(F_p1))
     # print("y_p1 : ", y_p1)
-    # print("test1 : ", y_p1 - u_p1.dot(A_p1))
+
     rows = np.r_[psi, y_p1]
 
     return rows
@@ -135,6 +131,7 @@ def pls_update(V, Y):
     return pls
 
 def plt_show1(n, y1_act):
+    plt.figure()
     plt.plot(np.arange(1, n + 1), y1_act, 'bx--', lw=2, ms=10, mew=2)
     plt.xticks(np.arange(0, n, 10))
     plt.xlabel('Run No.')
@@ -146,16 +143,20 @@ def plt_show2(n, y1_act):
     plt.xlabel('Run No.')
     plt.ylabel('y_value')
 
+for k in range(0, N + 1):
+    sample_init_VP.append(sampling_vp())
+    sample_init_EP.append(sampling_ep())
 
 DoE_Queue = []
 uk_next = np.array([0, 0])
 Dk_prev = np.array([0, 0])
 Kd_prev = np.array([0, 0])
 
-vp_next = sampling_vp()
+vp_next = sample_init_VP[0]
+ep_next = sample_init_EP[0]
 
 for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
-    result = sampling(k, uk_next, vp_next, True)
+    result = sampling(k, uk_next, vp_next, ep_next, True)
     npResult = np.array(result)
 
     L1 = IL1
@@ -173,8 +174,9 @@ for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
     Dk_prev = Dk
 
     uk_next = (Tgt - Dk - Kd).dot(np.linalg.inv(A_p1))
-    print("uk_next :", uk_next)
-    vp_next = sampling_vp()
+#    print("uk_next :", uk_next)
+    vp_next = sample_init_VP[k]
+    ep_next = sample_init_EP[k]
 
     DoE_Queue.append(result)
 
@@ -207,9 +209,15 @@ y_act = npDoE_Queue[:,9:11]
 print("Mean squared error: %.3f" % metrics.mean_squared_error(y_act, y_pred))
 print("r2 score: %.3f" % metrics.r2_score(y_act, y_pred))
 
-#plt_show2(Z * M, y_act[:,1:2])
+#plt_show1(Z * M, y_act[:,1:2])
 
 #==================================== VM + R2R =======================================
+Z = 20
+M = 10
+N = Z * M
+for k in range(0, N + 1):
+    sample_vm_VP.append(sampling_vp())
+    sample_vm_EP.append(sampling_ep())
 
 meanVz = DoE_Mean[0:9]
 meanYz = DoE_Mean[9:11]  ## V0, Y0 Mean Center
@@ -221,28 +229,30 @@ Kd_prev = np.array([0, 0])
 
 Dk = np.array([0, 0])
 Kd = np.array([0, 0])
-uk_next = np.array([0, 0])
-vp_next = sampling_vp()
 
-Z = 20
-M = 10
+uk_next = np.array([0, 0])
+vp_next = sample_vm_VP[0]
+ep_next = sample_vm_EP[0]
+
 M_Queue = []
 ez_Queue = []
 ez_Queue.append([0,0])  #e0 = (0,0)
 y1_act1 = []
 y1_pred1 = []
 
+
 for z in np.arange(0, Z):
     for k in np.arange(z * M + 1, ((z + 1) * M) + 1):
-        result = sampling(k, uk_next, vp_next, False)
+        result = sampling(k, uk_next, vp_next, ep_next, False)
         psiK = result[0:9]
         psiKStar = psiK - meanVz
         y_predK = pls.predict(psiKStar.reshape(1, 9)) + meanYz
         rows = np.r_[result, y_predK.reshape(2,)]
 
         y1_pred1.append(rows[11:13])
+        y1_act1.append(rows[9:11])
 
-        # ================================== L2L Control =====================================
+        # ================================== VM + R2R =====================================
         L1 = AL1
         L2 = AL2
 
@@ -256,14 +266,15 @@ for z in np.arange(0, Z):
         Kd = (yk - uk.dot(A_p1) - Dk_prev).dot(L2) + Kd_prev.dot(I - L2)
 
 #        rows[10:12] = uk.dot(A_p1) + Dk + Kd
-        y1_act1.append(yk)
+#        y1_act1.append(yk)
 
         Kd_prev = Kd
         Dk_prev = Dk
 
         uk_next = (Tgt - Dk - Kd).dot(np.linalg.inv(A_p1))
         uk_next = uk_next.reshape(2, )
-        vp_next = sampling_vp()
+        vp_next = sample_vm_VP[k]
+        ep_next = sample_vm_EP[k]
 
         M_Queue.append(rows)
 
@@ -274,7 +285,7 @@ for z in np.arange(0, Z):
 
     npM_Queue = np.array(M_Queue)
     npM_Queue[0:M - 1, 0:9] = lamda_PLS * npM_Queue[0:M - 1, 0:9]
-    npM_Queue[0:M - 1, 9:11] = lamda_PLS * (npM_Queue[0:M - 1, 11:13])
+    npM_Queue[0:M - 1, 9:11] = lamda_PLS * (npM_Queue[0:M - 1, 11:13] + 0.5 * ez)
     npM_Queue = npM_Queue[:, 0:11]
 
     for i in range(M):
@@ -305,6 +316,8 @@ print("r2 score: %.3f" % metrics.r2_score(y1_act[:,1:2], y1_pred[:,1:2]))
 plt_show1(Z * M, y1_act[:,1:2])
 
 ###============================= R2R-VM With PreProcessing =================================
+###============================= R2R-VM With PreProcessing =================================
+###============================= R2R-VM With PreProcessing =================================
 
 pls = PLSRegression(n_components=6, scale=False, max_iter=50000, copy=True)
 
@@ -313,22 +326,29 @@ M = 10
 N = Z * M
 
 DoE_Queue = []
-uk_next = np.array([-50, -100])
-Dk_prev = np.array([20, 25])
-# uk_next = np.array([0, 0])
-# Dk_prev = np.array([0, 0])
+# uk_next = np.array([-50, -100])
+# Dk_prev = np.array([20, 25])
+uk_next = np.array([0, 0])
+Dk_prev = np.array([0, 0])
 Kd_prev = np.array([0, 0])
 
-vp_next = sampling_vp()
+sample_init_VP = []
+sample_init_EP = []
+
+for k in range(0, N + 1):
+    sample_init_VP.append(sampling_vp())
+    sample_init_EP.append(sampling_ep())
+vp_next = sample_init_VP[0]
+ep_next = sample_init_EP[0]
 
 for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
-    result = sampling2(k, uk_next, vp_next, True)
+    result = sampling2(k, uk_next, vp_next, ep_next, True)
     npResult = np.array(result)
 
     L1 = IL1
     L2 = IL2
 
-    # ================================== R2R Control =====================================
+    # ================================== R2R Control With PreProcessing =====================================
     uk = npResult[0:2]
     yk = npResult[11:13]
 
@@ -343,7 +363,8 @@ for k in range(1, N + 1): # range(101) = [0, 1, 2, ..., 100])
     # print("uk_next :", uk_next)
     # print("Kd_prev :", Kd_prev)
     # print("Dk_prev :", Dk_prev)
-    vp_next = sampling_vp()
+    vp_next = sample_init_VP[k]
+    ep_next = sample_init_EP[k]
 
     DoE_Queue.append(result)
 
@@ -378,44 +399,54 @@ print("r2 score: %.3f" % metrics.r2_score(y_act, y_pred))
 
 #plt_show2(Z * M, y_act[:,1:2])
 
-#==================================== VM + R2R =======================================
+#==================================== VM + R2R With PreProcessing=======================================
+
+Z = 20
+M = 10
+N = Z * M
 
 meanVz = DoE_Mean[0:11]
 meanYz = DoE_Mean[11:13]  ## V0, Y0 Mean Center
 
 yk = np.array([0, 0])
 
-uk_next = np.array([-50, -100])
-Dk_prev = np.array([20, 25])
+# uk_next = np.array([-50, -100])
+# Dk_prev = np.array([20, 25])
 
-# uk_next = np.array([0, 0])
-# Dk_prev = np.array([0, 0])
+uk_next = np.array([0, 0])
+Dk_prev = np.array([0, 0])
 Kd_prev = np.array([0, 0])
 
 Dk = np.array([0, 0])
 Kd = np.array([0, 0])
 
-vp_next = sampling_vp()
-
-Z = 20
-M = 10
 M_Queue = []
 ez_Queue = []
 ez_Queue.append([0,0])  #e0 = (0,0)
 y1_act1 = []
 y1_pred1 = []
 
+sample_vm_VP = []
+sample_vm_EP = []
+
+for k in range(0, N + 1):
+    sample_vm_VP.append(sampling_vp())
+    sample_vm_EP.append(sampling_ep())
+vp_next = sample_vm_VP[0]
+ep_next = sample_vm_EP[0]
+
 for z in np.arange(0, Z):
     for k in np.arange(z * M + 1, ((z + 1) * M) + 1):
-        result = sampling2(k, uk_next, vp_next, False)
+        result = sampling2(k, uk_next, vp_next, ep_next, False)
         psiK = result[0:11]
         psiKStar = psiK - meanVz
         y_predK = pls.predict(psiKStar.reshape(1, 11)) + meanYz
         rows = np.r_[result, y_predK.reshape(2,)]
 
         y1_pred1.append(rows[13:15])
+        y1_act1.append(rows[11:13])
 
-        # ================================== R2R Control =====================================
+        # ================================== R2R Control With PreProcessing =====================================
         L1 = AL1
         L2 = AL2
 
@@ -428,15 +459,16 @@ for z in np.arange(0, Z):
         Dk = (yk - uk.dot(A_p1)).dot(L1) + Dk_prev.dot((I - L1))
         Kd = (yk - uk.dot(A_p1) - Dk_prev).dot(L2) + Kd_prev.dot(I - L2)
 
-#        rows[10:12] = uk.dot(A_p1) + Dk + Kd
-        y1_act1.append(yk)
+#        rows[11:13] = uk.dot(A_p1) + Dk + Kd
+#        y1_act1.append(yk)
 
         Kd_prev = Kd
         Dk_prev = Dk
 
         uk_next = (Tgt - Dk - Kd).dot(np.linalg.inv(A_p1))
         uk_next = uk_next.reshape(2, )
-        vp_next = sampling_vp()
+        vp_next = sample_vm_VP[k]
+        ep_next = sample_vm_EP[k]
 
         M_Queue.append(rows)
 
@@ -447,7 +479,7 @@ for z in np.arange(0, Z):
 
     npM_Queue = np.array(M_Queue)
     npM_Queue[0:M - 1, 0:11] = lamda_PLS * npM_Queue[0:M - 1, 0:11]
-    npM_Queue[0:M - 1, 11:13] = lamda_PLS * (npM_Queue[0:M - 1, 13:15])
+    npM_Queue[0:M - 1, 11:13] = lamda_PLS * (npM_Queue[0:M - 1, 13:15] + 0.5 * ez)
     npM_Queue = npM_Queue[:, 0:13]
 
     for i in range(M):
@@ -469,6 +501,7 @@ for z in np.arange(0, Z):
     del M_Queue[0:M]
 
 y1_act = np.array(y1_act1)
+
 y1_pred = np.array(y1_pred1)
 
 print("Mean squared error: %.3f" % metrics.mean_squared_error(y1_act[:,1:2], y1_pred[:,1:2]))
