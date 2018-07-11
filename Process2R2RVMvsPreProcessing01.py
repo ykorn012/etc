@@ -5,7 +5,7 @@ from sklearn import metrics
 
 pls = PLSRegression(n_components=6, scale=False, max_iter=50000, copy=True)
 init_lamda_PLS = 1
-lamda_PLS = 0.1
+lamda_PLS = 1
 
 Tgt = np.array([0, 0])
 A_p1 = np.array([[1, 0.1], [-0.5, 0.2]])
@@ -18,9 +18,9 @@ sample_vm_EP = []
 sample_init_VP = []
 sample_vm_VP = []
 
-preProcessMet = np.genfromtxt('D:/11. Programming/ML/process1-metrology.csv', delimiter=',')
+preProcessMet = np.genfromtxt('D:/01. CLASS/Machine Learning/process1-metrology.csv', delimiter=',')
 
-np.random.seed(4)
+np.random.seed(1000000)
 
 I = np.identity(2)
 
