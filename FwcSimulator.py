@@ -6,13 +6,14 @@ from sklearn import metrics
 
 class FwcSimulator:
 
-    def __init__(self, Tgt, A, d, C):
+    def __init__(self, Tgt, A, d, C, F):
         self.pls = PLSRegression(n_components=6, scale=False, max_iter=50000, copy=True)
         np.random.seed(1000000)
         self.Tgt = Tgt
         self.A = A
         self.d = d
         self.C = C
+        self.F = F
 
     def sampling_vp(self):
         v1 = np.random.normal(1, np.sqrt(0.2))
@@ -46,17 +47,49 @@ class FwcSimulator:
         v = vp
         e = ep
 
-        # if isInit == True:
-        #     e_p1 = [0, 0]
+        k1 = k
+        k2 = k
+        eta_k = np.array([[k1], [k2]])
+
+        psi = np.array([u1, u2, v1, v2, v3, v4, v5, v6, k1, k2])
+
+        y = u.dot(self.A) + v.dot(self.C) + np.sum(eta_k * self.d, axis=0) + e
+        rows = np.r_[psi, y]
+        # print("u : ", u)
+        # print("v : ", v)
+        # print("eta_k : ", eta_k)
+        # print("y : ", y)
+        return rows
+
+    def sampling(self, k, uk=np.array([0, 0]), vp=np.array([0, 0, 0, 0, 0, 0]), ep=np.array([0, 0]), fp=np.array([0, 0]), isInit=True):
+        u1 = uk[0]
+        u2 = uk[1]
+        u = uk
+
+        v1 = vp[0]
+        v2 = vp[1]
+        v3 = vp[2]
+        v4 = vp[3]
+        v5 = vp[4]
+        v6 = vp[5]
+
+        v = vp
+        e = ep
+
+        f1 = fp[0]
+        f2 = fp[1]
+        f = fp
+
+
 
         k1 = k
         k2 = k
 
         eta_k = np.array([[k1], [k2]])
 
-        psi = np.array([u1, u2, v1, v2, v3, v4, v5, v6, k1, k2])
+        psi = np.array([u1, u2, v1, v2, v3, v4, v5, v6, k1, k2, f1, f2])
 
-        y = u.dot(self.A) + v.dot(self.C) + np.sum(eta_k * self.d, axis=0) + e
+        y = u.dot(self.A) + v.dot(self.C) + np.sum(eta_k * self.d, axis=0) + f.dot(self.F) + e
         rows = np.r_[psi, y]
         # print("u : ", u)
         # print("v : ", v)
@@ -289,8 +322,10 @@ class FwcSimulator:
         print("VM r2 score: %.3f" % metrics.r2_score(y_act[:, 0:1], y_pred[:, 0:1]))
 
         if isR2R == True:
-            np.savetxt("process1-metrology.csv", VM_Output, delimiter=",", fmt="%s")
+  #          np.savetxt("process1-metrology.csv", VM_Output, delimiter=",", fmt="%s")
             self.plt_show2(N, y_act[:, 0:1])
         else:
             self.plt_show1(N, y_act[:, 0:1])
+
+        return VM_Output
 
