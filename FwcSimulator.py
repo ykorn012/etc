@@ -32,70 +32,76 @@ class FwcSimulator:
         e = np.array([e1, e2])
         return e
 
-    def sampling(self, k, uk=np.array([0, 0]), vp=np.array([0, 0, 0, 0, 0, 0]), ep=np.array([0, 0]), isInit=True):
-        u1 = uk[0]
-        u2 = uk[1]
-        u = uk
-
-        v1 = vp[0]
-        v2 = vp[1]
-        v3 = vp[2]
-        v4 = vp[3]
-        v5 = vp[4]
-        v6 = vp[5]
-
-        v = vp
-        e = ep
-
-        k1 = k
-        k2 = k
-        eta_k = np.array([[k1], [k2]])
-
-        psi = np.array([u1, u2, v1, v2, v3, v4, v5, v6, k1, k2])
-
-        y = u.dot(self.A) + v.dot(self.C) + np.sum(eta_k * self.d, axis=0) + e
-        rows = np.r_[psi, y]
-        # print("u : ", u)
-        # print("v : ", v)
-        # print("eta_k : ", eta_k)
-        # print("y : ", y)
-        return rows
+    # def sampling(self, k, uk=np.array([0, 0]), vp=np.array([0, 0, 0, 0, 0, 0]), ep=np.array([0, 0]), isInit=True):
+    #     u1 = uk[0]
+    #     u2 = uk[1]
+    #     u = uk
+    #
+    #     v1 = vp[0]
+    #     v2 = vp[1]
+    #     v3 = vp[2]
+    #     v4 = vp[3]
+    #     v5 = vp[4]
+    #     v6 = vp[5]
+    #
+    #     v = vp
+    #     e = ep
+    #
+    #     k1 = k
+    #     k2 = k
+    #     eta_k = np.array([[k1], [k2]])
+    #
+    #     psi = np.array([u1, u2, v1, v2, v3, v4, v5, v6, k1, k2])
+    #
+    #
+    #     rows = np.r_[psi, y]
+    #     # print("u : ", u)
+    #     # print("v : ", v)
+    #     # print("eta_k : ", eta_k)
+    #     # print("y : ", y)
+    #     return rows
 
     def sampling(self, k, uk=np.array([0, 0]), vp=np.array([0, 0, 0, 0, 0, 0]), ep=np.array([0, 0]), fp=np.array([0, 0]), isInit=True):
-        u1 = uk[0]
-        u2 = uk[1]
+        psi = []
         u = uk
-
-        v1 = vp[0]
-        v2 = vp[1]
-        v3 = vp[2]
-        v4 = vp[3]
-        v5 = vp[4]
-        v6 = vp[5]
-
+        psi = np.r_[psi, u]
         v = vp
-        e = ep
-
-        f1 = fp[0]
-        f2 = fp[1]
-        f = fp
+        psi = np.r_[psi, v]
 
 
+        if fp is not None:
+            f = fp
 
         k1 = k
         k2 = k
 
-        eta_k = np.array([[k1], [k2]])
+        eta_k = np.array(k1, k2)
+        psi = np.r_[psi, eta_k]
 
-        psi = np.array([u1, u2, v1, v2, v3, v4, v5, v6, k1, k2, f1, f2])
+        e = ep
 
-        y = u.dot(self.A) + v.dot(self.C) + np.sum(eta_k * self.d, axis=0) + f.dot(self.F) + e
+        # if len(vp) > 5:
+        #     psi = np.array([u1, u2, v1, v2, v3, v4, v5, v6, k1, k2])
+        # else:
+        #     psi = np.array([u1, u2, v1, v2, v3, v4, v5, k1, k2])
+
+        if fp is not None:
+            y = u.dot(self.A) + v.dot(self.C) + np.sum(eta_k * self.d, axis=0) + f.dot(self.F) + e
+        else:
+            y = u.dot(self.A) + v.dot(self.C) + np.sum(eta_k * self.d, axis=0) + e
+
         rows = np.r_[psi, y]
         # print("u : ", u)
         # print("v : ", v)
         # print("eta_k : ", eta_k)
         # print("y : ", y)
-        return rows
+        idx_end = len(rows)
+        idx_start = idx_end - 2
+
+        # print("rows : ", len(rows))
+        # print("idx_end : ", idx_end)
+        # print("idx_start : ", idx_start)
+        return idx_start, idx_end, rows
 
     def pls_update(self, V, Y):
         self.pls.fit(V, Y)
@@ -133,7 +139,7 @@ class FwcSimulator:
         plt.xlabel('Run No.')
         plt.ylabel('y_value')
 
-    def DoE_Run(self, lamda_PLS, dEWMA_Wgt1, dEWMA_Wgt2, Z, M, isR2R):
+    def DoE_Run(self, lamda_PLS, dEWMA_Wgt1, dEWMA_Wgt2, Z, M, f, isR2R):
         N = Z * M
         I = np.identity(2)
         dEWMA_Wgt1 = dEWMA_Wgt1 * I
@@ -148,12 +154,12 @@ class FwcSimulator:
         ep_next = self.sampling_ep()
 
         for k in range(1, N + 1):  # range(101) = [0, 1, 2, ..., 100])
-            result = self.sampling(k, uk_next, vp_next, ep_next, True)
+            idx_start, idx_end, result = self.sampling(k, uk_next, vp_next, ep_next, f, True)
             npResult = np.array(result)
 
             # ================================== initVM-R2R Control =====================================
             uk = npResult[0:2]
-            yk = npResult[10:12]
+            yk = npResult[idx_start:idx_end]
 
             Dk = (yk - uk.dot(self.A)).dot(dEWMA_Wgt1) + Dk_prev.dot(I - dEWMA_Wgt1)
             Kd = (yk - uk.dot(self.A) - Dk_prev).dot(dEWMA_Wgt2) + Kd_prev.dot(I - dEWMA_Wgt2)
@@ -178,8 +184,8 @@ class FwcSimulator:
         plsWindow = []
 
         for z in np.arange(0, Z):
-            npPlsWindow[z * M:(z + 1) * M - 1, 0:10] = lamda_PLS * npPlsWindow[z * M:(z + 1) * M - 1, 0:10]
-            npPlsWindow[z * M:(z + 1) * M - 1, 10:12] = lamda_PLS * (npPlsWindow[z * M:(z + 1) * M - 1, 10:12])
+            npPlsWindow[z * M:(z + 1) * M - 1, 0:idx_start] = lamda_PLS * npPlsWindow[z * M:(z + 1) * M - 1, 0:idx_start]
+            npPlsWindow[z * M:(z + 1) * M - 1, idx_start:idx_end] = lamda_PLS * (npPlsWindow[z * M:(z + 1) * M - 1, idx_start:idx_end])
 
         for i in range(len(npPlsWindow)):
             plsWindow.append(npPlsWindow[i])
@@ -188,18 +194,18 @@ class FwcSimulator:
         DoE_Mean = np.mean(npDoE_Queue, axis=0)
 
         plsModelData = npDoE_Queue - DoE_Mean
-        V0 = plsModelData[:, 0:10]
-        Y0 = plsModelData[:, 10:12]
+        V0 = plsModelData[:, 0:idx_start]
+        Y0 = plsModelData[:, idx_start:idx_end]
 
         pls = self.pls_update(V0, Y0)
 
         print('Init VM Coefficients: \n', pls.coef_)
 
-        y_pred = pls.predict(V0) + DoE_Mean[10:12]
-        y_act = npDoE_Queue[:, 10:12]
+        y_pred = pls.predict(V0) + DoE_Mean[idx_start:idx_end]
+        y_act = npDoE_Queue[:, idx_start:idx_end]
 
-        print("Init VM Mean squared error: %.3f" % metrics.mean_squared_error(y_act, y_pred))
-        print("Init VM r2 score: %.3f" % metrics.r2_score(y_act, y_pred))
+        # print("Init VM Mean squared error: %.3f" % metrics.mean_squared_error(y_act, y_pred))
+        # print("Init VM r2 score: %.3f" % metrics.r2_score(y_act, y_pred))
 
         self.setDoE_Mean(DoE_Mean)
         self.setPlsWindow(plsWindow)
@@ -209,7 +215,7 @@ class FwcSimulator:
         # else:
         #     self.plt_show1(N, y_act[:, 0:1])
 
-    def VM2R2R_Run(self, lamda_PLS, dEWMA_Wgt1, dEWMA_Wgt2, Z, M, isR2R):
+    def VM_Run(self, lamda_PLS, dEWMA_Wgt1, dEWMA_Wgt2, Z, M, f, isR2R):
         N = Z * M
         I = np.identity(2)
         dEWMA_Wgt1 = dEWMA_Wgt1 * I
@@ -217,8 +223,12 @@ class FwcSimulator:
 
         ## V0, Y0 Mean Center
         DoE_Mean = self.getDoE_Mean()
-        meanVz = DoE_Mean[0:10]
-        meanYz = DoE_Mean[10:12]
+        idx_end = len(DoE_Mean)
+        idx_start = idx_end - 2
+        # print (len(DoE_Mean))
+
+        meanVz = DoE_Mean[0:idx_start]
+        meanYz = DoE_Mean[idx_start:idx_end]
         yk = np.array([0, 0])
 
         Dk_prev = np.array([0, 0])
@@ -243,21 +253,21 @@ class FwcSimulator:
 
         for z in np.arange(0, Z):
             for k in np.arange(z * M + 1, ((z + 1) * M) + 1):
-                result = self.sampling(k, uk_next, vp_next, ep_next, False)
-                psiK = result[0:10]
+                idx_start, idx_end, result = self.sampling(k, uk_next, vp_next, ep_next, f, False)
+                psiK = result[0:idx_start]
                 psiKStar = psiK - meanVz
-                y_predK = self.pls.predict(psiKStar.reshape(1, 10)) + meanYz
+                y_predK = self.pls.predict(psiKStar.reshape(1, idx_start)) + meanYz
                 rows = np.r_[result, y_predK.reshape(2, )]
 
-                y_pred.append(rows[12:14])
-                y_act.append(rows[10:12])
+                y_pred.append(rows[idx_end:idx_end + 2])
+                y_act.append(rows[idx_start:idx_end])
 
                 # ================================== VM + R2R Control =====================================
 
                 if k % M != 0:
-                    yk = rows[12:14]
+                    yk = rows[idx_end:idx_end + 2]
                 else:
-                    yk = rows[10:12]
+                    yk = rows[idx_start:idx_end]
                 uk = psiK[0:2]
 
                 Dk = (yk - uk.dot(self.A)).dot(dEWMA_Wgt1) + Dk_prev.dot(I - dEWMA_Wgt1)
@@ -290,27 +300,27 @@ class FwcSimulator:
                 ez = 0
 
             npM_Queue = np.array(M_Queue)
-            npM_Queue[0:M - 1, 0:10] = lamda_PLS * npM_Queue[0:M - 1, 0:10]
-            npM_Queue[0:M - 1, 10:12] = lamda_PLS * (npM_Queue[0:M - 1, 12:14] + 0.5 * ez)
-            npM_Queue = npM_Queue[:, 0:12]
+            npM_Queue[0:M - 1, 0:idx_start] = lamda_PLS * npM_Queue[0:M - 1, 0:idx_start]
+            npM_Queue[0:M - 1, idx_start:idx_end] = lamda_PLS * (npM_Queue[0:M - 1, idx_end:idx_end + 2] + 0.5 * ez)
+            npM_Queue = npM_Queue[:, 0:idx_end]
 
             for i in range(M):
                 plsWindow.append(npM_Queue[i])
 
             M_Mean = np.mean(plsWindow, axis=0)
-            meanVz = M_Mean[0:10]
-            meanYz = M_Mean[10:12]
+            meanVz = M_Mean[0:idx_start]
+            meanYz = M_Mean[idx_start:idx_end]
 
             plsModelData = plsWindow - M_Mean
-            V = plsModelData[:, 0:10]
-            Y = plsModelData[:, 10:12]
+            V = plsModelData[:, 0:idx_start]
+            Y = plsModelData[:, idx_start:idx_end]
 
             T = len(plsModelData)
             for i in range(T - M, T):
                 VM_Output.append(Y[i])
 
             self.pls_update(V, Y)
-            ez = M_Queue[M - 1][10:12] - M_Queue[M - 1][12:14]
+            ez = M_Queue[M - 1][idx_start:idx_end] - M_Queue[M - 1][idx_end:idx_end + 2]
             ez_Queue.append(ez)
 
             del M_Queue[0:M]
@@ -318,14 +328,14 @@ class FwcSimulator:
         y_act = np.array(y_act)
         y_pred = np.array(y_pred)
 
-        print("VM Mean squared error: %.3f" % metrics.mean_squared_error(y_act[:, 0:1], y_pred[:, 0:1]))
-        print("VM r2 score: %.3f" % metrics.r2_score(y_act[:, 0:1], y_pred[:, 0:1]))
+        # print("VM Mean squared error: %.3f" % metrics.mean_squared_error(y_act, y_pred))
+        # print("VM r2 score: %.3f" % metrics.r2_score(y_act, y_pred))
 
-        if isR2R == True:
-  #          np.savetxt("process1-metrology.csv", VM_Output, delimiter=",", fmt="%s")
-            self.plt_show2(N, y_act[:, 0:1])
-        else:
-            self.plt_show1(N, y_act[:, 0:1])
-
-        return VM_Output
+  #       if isR2R == True:
+  # #          np.savetxt("process1-metrology.csv", VM_Output, delimiter=",", fmt="%s")
+  #           self.plt_show2(N, y_act[:, 0:1])
+  #       else:
+  #           self.plt_show1(N, y_act[:, 0:1])
+        VM_Output = np.array(VM_Output)
+        return y_act, VM_Output
 
